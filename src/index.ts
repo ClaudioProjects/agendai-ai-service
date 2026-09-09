@@ -1,18 +1,17 @@
+import { Redis } from "@upstash/redis";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { OpenAIAlarmParser } from "./providers/ai/openai-alarm-parser";
 import { OpenAITranscriber } from "./providers/ai/openai-transcriber";
 import { FirebaseAppCheckVerifier } from "./providers/auth/firebase-app-check-verifier";
-import { UpstashRedisCache } from "./providers/cache/upstash-redis-cache";
+import { UpstashRedisSdkCache } from "./providers/cache/upstash-redis-sdk-cache";
 import { ParseAlarmUseCase } from "./use-cases/parse-alarm";
 import { RegisterAppAuthUseCase } from "./use-cases/register-app-auth";
 import { TranscribeAudioUseCase } from "./use-cases/transcribe-audio";
 
 const config = loadConfig();
-const cache = new UpstashRedisCache(
-  config.REDIS_URL,
-  config.REDIS_TOKEN,
-  config.UPSTREAM_TIMEOUT_MS,
+const cache = new UpstashRedisSdkCache(
+  new Redis({ url: config.REDIS_URL, token: config.REDIS_TOKEN }),
 );
 const verifier = new FirebaseAppCheckVerifier({
   projectId: config.FIREBASE_PROJECT_ID,

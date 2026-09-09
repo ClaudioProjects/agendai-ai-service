@@ -9,6 +9,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.4",
     "firebase-admin": "^14.3.0",
     "hono": "^4.13.7",
     "music-metadata": "^11.15.0",
