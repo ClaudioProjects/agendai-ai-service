@@ -44,7 +44,9 @@ class MemoryCache implements CacheStore {
   }
 }
 class Verifier implements AppAttestationVerifier {
+  calls = 0;
   async verify(token: string) {
+    this.calls++;
     if (token === "bad")
       throw new ApiError("APP_CHECK_TOKEN_INVALID", 401, "bad");
     return { appId: "app", expiresAt: new Date(Date.now() + 60_000) };
@@ -64,7 +66,10 @@ class Transcriber implements AudioTranscriber {
     return "dentista amanhã às duas";
   }
 }
-function fixture(overrides: Partial<AppDependencies["limits"]> = {}) {
+function fixture(
+  overrides: Partial<AppDependencies["limits"]> = {},
+  testAuthToken?: string,
+) {
   const cache = new MemoryCache();
   const verifier = new Verifier();
   const parser = new Parser();
@@ -73,6 +78,7 @@ function fixture(overrides: Partial<AppDependencies["limits"]> = {}) {
     verifier,
     cache,
     registerAppAuth: new RegisterAppAuthUseCase(verifier, cache, ["app"]),
+    testAuthToken,
     parseAlarms: new ParseAlarmUseCase(parser),
     transcribeAudio: new TranscribeAudioUseCase(
       transcriber,
@@ -94,7 +100,7 @@ function fixture(overrides: Partial<AppDependencies["limits"]> = {}) {
       ...overrides,
     },
   };
-  return { app: createApp(deps), parser, transcriber };
+  return { app: createApp(deps), parser, transcriber, verifier };
 }
 const headers = {
   "X-Firebase-AppCheck": "token",
@@ -132,6 +138,26 @@ describe("AgendAI API", () => {
     });
     expect(response.status).toBe(401);
     expect(parser.calls).toBe(0);
+  });
+  test("registers the configured test token without calling Firebase", async () => {
+    const { app, verifier } = fixture({}, "local-test-token");
+    const response = await app.request("/register-auth", {
+      method: "POST",
+      headers: { ...headers, "X-Firebase-AppCheck": "local-test-token" },
+    });
+    expect(response.status).toBe(200);
+    expect(verifier.calls).toBe(0);
+  });
+  test("accepts the configured test token without Firebase verification or registration", async () => {
+    const { app, parser, verifier } = fixture({}, "local-test-token");
+    const response = await app.request("/parse", {
+      method: "POST",
+      headers: { ...headers, "X-Firebase-AppCheck": "local-test-token" },
+      body: JSON.stringify(payload),
+    });
+    expect(response.status).toBe(200);
+    expect(parser.calls).toBe(1);
+    expect(verifier.calls).toBe(0);
   });
   test("returns an AlarmDraft array and accepts no reminder intent", async () => {
     const { app } = fixture();

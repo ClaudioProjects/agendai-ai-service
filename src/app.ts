@@ -21,6 +21,7 @@ export type AppDependencies = {
   verifier: AppAttestationVerifier;
   cache: CacheStore;
   registerAppAuth: RegisterAppAuthUseCase;
+  testAuthToken?: string;
   parseAlarms: ParseAlarmUseCase;
   transcribeAudio: TranscribeAudioUseCase;
   allowedOrigins: string[];
@@ -93,13 +94,21 @@ export function createApp(deps: AppDependencies) {
           401,
           "X-Firebase-AppCheck header is required.",
         );
+      if (deps.testAuthToken && token === deps.testAuthToken)
+        return context.json({ registered: true });
+
       await deps.registerAppAuth.execute(token);
       return context.json({ registered: true });
     },
   );
   const protection = (route: "parse" | "transcribe") =>
     [
-      appAuth(deps.verifier, deps.cache, deps.allowedAppIds),
+      appAuth(
+        deps.verifier,
+        deps.cache,
+        deps.allowedAppIds,
+        deps.testAuthToken,
+      ),
       rateLimit(
         deps.cache,
         route === "parse"

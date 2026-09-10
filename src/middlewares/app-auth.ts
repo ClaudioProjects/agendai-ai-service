@@ -9,6 +9,7 @@ export function appAuth(
   verifier: AppAttestationVerifier,
   cache: CacheStore,
   allowedAppIds: readonly string[],
+  testToken?: string,
 ): MiddlewareHandler {
   return async (context, next) => {
     const token = context.req.header("X-Firebase-AppCheck");
@@ -18,8 +19,12 @@ export function appAuth(
         401,
         "X-Firebase-AppCheck header is required.",
       );
-    assertAllowedApp(await verifier.verify(token), allowedAppIds);
     const tokenHash = await sha256(token);
+    if (testToken && token === testToken) {
+      context.set("tokenHash", tokenHash);
+      return next();
+    }
+    assertAllowedApp(await verifier.verify(token), allowedAppIds);
     if ((await cache.get(`auth:${tokenHash}`)) === null)
       throw new ApiError(
         "AUTH_NOT_REGISTERED",

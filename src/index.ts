@@ -34,6 +34,7 @@ const app = createApp({
       .map((appId) => appId.trim())
       .filter(Boolean),
   ),
+  testAuthToken: config.APP_AUTH_TEST_TOKEN,
   parseAlarms: new ParseAlarmUseCase(parser),
   transcribeAudio: new TranscribeAudioUseCase(
     new OpenAITranscriber(

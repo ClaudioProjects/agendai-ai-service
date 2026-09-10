@@ -23,3 +23,7 @@ O `REDIS_URL` é o endpoint HTTPS REST do Redis/Upstash e `REDIS_TOKEN` é seu b
 Faça o deploy com `backend` como Root Directory e cadastre todas as variáveis de `.env.example` no painel. `vercel.json` usa Bun 1.x e reescreve as três rotas para a função Hono em `api/index.ts`.
 
 Na Vercel, Functions aceitam no máximo 4,5 MB por request. Por isso, `MAX_AUDIO_SIZE_BYTES` é limitado a 4.000.000 bytes e uploads sem `Content-Length` são rejeitados antes do parse multipart. Configure `FIREBASE_ALLOWED_APP_IDS` com os IDs dos apps Firebase que podem chamar esta API e mantenha `UPSTREAM_TIMEOUT_MS` abaixo do timeout da Function.
+
+## Teste sem validação Firebase por requisição
+
+Defina `APP_AUTH_TEST_TOKEN` no backend e envie exatamente esse valor no cabeçalho `X-Firebase-AppCheck`. Esse token libera `/register-auth`, `/parse` e `/transcribe` sem verificar aquela requisição no Firebase nem exigir o registro do token em Redis; os limites por IP e por token continuam ativos. As variáveis `FIREBASE_*` e o verifier continuam obrigatórios, pois o Firebase permanece o fluxo normal de autenticação. Não exponha esse token em um build público ou em produção: ele é apenas um atalho temporário para desenvolvimento e testes.

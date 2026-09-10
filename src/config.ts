@@ -1,11 +1,18 @@
 import { z } from "zod";
 
+const optionalNonEmptyString = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim().length === 0 ? undefined : value,
+  z.string().min(1).optional(),
+);
+
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_TRANSCRIPTION_MODEL: z.string().min(1),
   OPENAI_PARSE_MODEL: z.string().min(1),
   REDIS_URL: z.string().url(),
   REDIS_TOKEN: z.string().min(1),
+  APP_AUTH_TEST_TOKEN: optionalNonEmptyString,
   FIREBASE_PROJECT_ID: z.string().min(1),
   FIREBASE_CLIENT_EMAIL: z.string().email(),
   FIREBASE_PRIVATE_KEY: z.string().min(1),
