@@ -52,7 +52,16 @@ export const alarmDraftSchema = z
   .strict();
 
 export const alarmDraftArraySchema = z.array(alarmDraftSchema);
+
+// A JSON object with arbitrary keys cannot be represented by OpenAI's strict
+// Structured Outputs schema. New alarms do not have occurrence exceptions, so
+// constrain this response-only field to null and validate it against the full
+// draft contract after parsing.
+const alarmDraftOutputSchema = alarmDraftSchema
+  .extend({ exceptions: z.null() })
+  .strict();
+
 export const alarmDraftResponseSchema = z
-  .object({ drafts: alarmDraftArraySchema })
+  .object({ drafts: z.array(alarmDraftOutputSchema) })
   .strict();
 export type AlarmDraft = z.infer<typeof alarmDraftSchema>;
