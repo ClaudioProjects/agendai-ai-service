@@ -15,6 +15,8 @@ import { ApiError } from "../src/libs/errors";
 
 const draft = (title = "Dentista"): AlarmDraft => ({
   id: null,
+  reminderType: "reminder",
+  amount: null,
   eventType: "DENTIST",
   date: "2026-09-09",
   time: "14:00",

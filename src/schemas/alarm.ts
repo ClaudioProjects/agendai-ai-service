@@ -21,10 +21,13 @@ export const recurrenceTypes = [
   "monthly",
   "yearly",
 ] as const;
+export const reminderTypes = ["reminder", "pay_bill"] as const;
 
 export const alarmDraftSchema = z
   .object({
     id: z.string().nullable(),
+    reminderType: z.enum(reminderTypes).nullable(),
+    amount: z.number().nonnegative().nullable(),
     eventType: z.enum(eventTypes).nullable(),
     date: z.string().date().nullable(),
     time: z
@@ -39,13 +42,13 @@ export const alarmDraftSchema = z
       })
       .nullable(),
     notifications: z.array(z.number().int().nonnegative()).nullable(),
-    status: z.enum(["pending", "completed"]).nullable(),
+    status: z.enum(["pending", "completed", "cancelled"]).nullable(),
     createdAt: z.string().datetime().nullable(),
     updatedAt: z.string().datetime().nullable(),
     exceptions: z
       .record(z.string(), z.enum(["completed", "cancelled"]))
       .nullable(),
-    title: z.string().nullable(),
+    title: z.string().trim().min(1),
     description: z.string().nullable(),
     eventColor: z.string().nullable(),
   })
