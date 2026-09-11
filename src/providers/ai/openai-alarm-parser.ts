@@ -9,7 +9,7 @@ import {
 } from "../../schemas/alarm";
 import type { ParseInput } from "../../schemas/requests";
 
-const instructions = `You extract one or more alarm drafts from the user's text. Return an empty array when no reminder/alarm intent exists. Use currentDateTime, timezone, and locale to resolve relative dates. Never invent information: use null for unknown fields. id, status, createdAt, updatedAt, exceptions, notifications and eventColor are normally null. The requested response must contain every AlarmDraft property. Interpret a Portuguese everyday unqualified 'às duas' as 14:00 when it is a plausible daytime appointment. Return dates as YYYY-MM-DD and time as HH:mm.`;
+const instructions = `You extract one or more alarm drafts from the user's text. Return an empty array when no reminder/alarm intent exists. Use currentDateTime, timezone, and locale to resolve relative dates. Never invent information: use null for unknown fields. id, status, createdAt, updatedAt, exceptions, notifications and eventColor must be null. The requested response must contain every AlarmDraft property. Interpret a Portuguese everyday unqualified 'às duas' as 14:00 when it is a plausible daytime appointment. Return dates as YYYY-MM-DD and time as HH:mm.`;
 
 export class OpenAIAlarmParser implements AlarmParser {
   private readonly client: OpenAI;
