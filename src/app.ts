@@ -13,6 +13,7 @@ import { observability } from "./middlewares/observability";
 import { rateLimit } from "./middlewares/rate-limit";
 import { parseInputSchema } from "./schemas/requests";
 import { validateAudio } from "./libs/audio";
+import { normalizeCapturedAudioMimeType } from "./libs/audio-mime";
 import { ParseAlarmUseCase } from "./use-cases/parse-alarm";
 import { RegisterAppAuthUseCase } from "./use-cases/register-app-auth";
 import { TranscribeAudioUseCase } from "./use-cases/transcribe-audio";
@@ -168,15 +169,16 @@ export function createApp(deps: AppDependencies) {
       deps.limits.maxTextLength,
     ).context;
     const bytes = new Uint8Array(await audio.arrayBuffer());
+    const mimeType = normalizeCapturedAudioMimeType(audio.type);
     await validateAudio({
       bytes,
-      mimeType: audio.type,
+      mimeType,
       maxBytes: deps.limits.maxAudioSizeBytes,
       maxSeconds: deps.limits.maxAudioDurationSeconds,
     });
     return context.json(
       await deps.transcribeAudio.execute(
-        { bytes, fileName: audio.name, mimeType: audio.type },
+        { bytes, fileName: audio.name, mimeType },
         contextInput,
       ),
     );
