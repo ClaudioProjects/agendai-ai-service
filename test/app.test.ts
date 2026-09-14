@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createApp, type AppDependencies } from "../src/app";
+import { createApp, type AppDependencies } from "../src/create-app";
 import type {
   AlarmParser,
   AudioInput,

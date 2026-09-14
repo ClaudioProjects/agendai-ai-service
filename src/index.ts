@@ -1,5 +1,8 @@
+/// <reference types="bun" />
+
 import { Redis } from "@upstash/redis";
-import { createApp } from "./app";
+import type { Hono } from "hono";
+import { createApp } from "./create-app";
 import { loadConfig } from "./config";
 import { OpenAIAlarmParser } from "./providers/ai/openai-alarm-parser";
 import { OpenAITranscriber } from "./providers/ai/openai-transcriber";
@@ -23,7 +26,7 @@ const parser = new OpenAIAlarmParser(
   config.OPENAI_PARSE_MODEL,
   config.UPSTREAM_TIMEOUT_MS,
 );
-const app = createApp({
+const app: Hono = createApp({
   // Keep text and audio on the same parsing use case.
   verifier,
   cache,
