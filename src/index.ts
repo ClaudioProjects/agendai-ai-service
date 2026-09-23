@@ -66,6 +66,13 @@ const app: Hono = createApp({
     transcribeToken: config.RATE_LIMIT_TRANSCRIBE_TOKEN,
   },
 });
-export default app;
-if (import.meta.main)
-  Bun.serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) });
+
+const port = Number(process.env.PORT ?? 3000);
+
+Bun.serve({
+  fetch: app.fetch,
+  port,
+  hostname: "0.0.0.0",
+});
+
+console.log(`Server running on port ${port}`);
