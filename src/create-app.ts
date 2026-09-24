@@ -63,8 +63,6 @@ export function createApp(deps: AppDependencies) {
   app.use(
     "*",
     cors({
-      origin: (origin) =>
-        deps.allowedOrigins.includes(origin) ? origin : undefined,
       allowMethods: ["POST", "OPTIONS"],
       allowHeaders: ["Content-Type", "X-Firebase-AppCheck"],
     }),
