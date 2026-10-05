@@ -2,6 +2,9 @@
 
 import { Redis } from "@upstash/redis";
 import type { Hono } from "hono";
+import { ParseController } from "./controllers/parse";
+import { RegisterAuthController } from "./controllers/register-auth";
+import { TranscribeController } from "./controllers/transcribe";
 import { createApp } from "./create-app";
 import { loadConfig } from "./config";
 import { OpenAIAlarmParser } from "./providers/ai/openai-alarm-parser";
@@ -29,22 +32,33 @@ const parser = new OpenAIAlarmParser(
 const app: Hono = createApp({
   verifier,
   cache,
-  registerAppAuth: new RegisterAppAuthUseCase(
-    verifier,
-    cache,
-    config.FIREBASE_ALLOWED_APP_IDS.split(",")
-      .map((appId) => appId.trim())
-      .filter(Boolean),
-  ),
-  testAuthToken: config.APP_AUTH_TEST_TOKEN,
-  parseAlarms: new ParseAlarmUseCase(parser),
-  parseAudio: new ParseAudioUseCase(
-    new OpenAIAudioAlarmParser(
-      config.OPENAI_API_KEY,
-      config.OPENAI_AUDIO_MODEL,
-      config.UPSTREAM_TIMEOUT_MS,
+  controllers: {
+    registerAuth: new RegisterAuthController(
+      new RegisterAppAuthUseCase(
+        verifier,
+        cache,
+        config.FIREBASE_ALLOWED_APP_IDS.split(",")
+          .map((appId) => appId.trim())
+          .filter(Boolean),
+      ),
+      config.APP_AUTH_TEST_TOKEN,
     ),
-  ),
+    parse: new ParseController(new ParseAlarmUseCase(parser)),
+    transcribe: new TranscribeController(
+      new ParseAudioUseCase(
+        new OpenAIAudioAlarmParser(
+          config.OPENAI_API_KEY,
+          config.OPENAI_AUDIO_MODEL,
+          config.UPSTREAM_TIMEOUT_MS,
+        ),
+      ),
+      {
+        maxAudioSizeBytes: config.MAX_AUDIO_SIZE_BYTES,
+        maxAudioDurationSeconds: config.MAX_AUDIO_DURATION_SECONDS,
+      },
+    ),
+  },
+  testAuthToken: config.APP_AUTH_TEST_TOKEN,
   allowedAppIds: config.FIREBASE_ALLOWED_APP_IDS.split(",")
     .map((appId) => appId.trim())
     .filter(Boolean),
@@ -55,7 +69,6 @@ const app: Hono = createApp({
     maxTextLength: config.MAX_TEXT_LENGTH,
     maxJsonBodyBytes: config.MAX_JSON_BODY_BYTES,
     maxAudioSizeBytes: config.MAX_AUDIO_SIZE_BYTES,
-    maxAudioDurationSeconds: config.MAX_AUDIO_DURATION_SECONDS,
     windowSeconds: config.RATE_LIMIT_WINDOW_SECONDS,
     parseIp: config.RATE_LIMIT_PARSE_IP,
     registerIp: config.RATE_LIMIT_REGISTER_IP,
