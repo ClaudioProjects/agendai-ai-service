@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { createApp, type AppDependencies } from "../src/create-app";
 import type {
   AlarmParser,
-  AudioInput,
-  AudioTranscriber,
+  AudioParseInput,
+  AudioAlarmParser,
 } from "../src/contracts/ai";
 import type { AppAttestationVerifier } from "../src/contracts/auth";
 import type { CacheStore } from "../src/contracts/cache";
 import type { AlarmDraft } from "../src/schemas/alarm";
 import { ParseAlarmUseCase } from "../src/use-cases/parse-alarm";
 import { RegisterAppAuthUseCase } from "../src/use-cases/register-app-auth";
-import { TranscribeAudioUseCase } from "../src/use-cases/transcribe-audio";
+import { ParseAudioUseCase } from "../src/use-cases/parse-audio";
 import { ApiError } from "../src/libs/errors";
 
 const draft = (title = "Dentista"): AlarmDraft => ({
@@ -61,11 +61,14 @@ class Parser implements AlarmParser {
     return input.text === "none" ? [] : [draft()];
   }
 }
-class Transcriber implements AudioTranscriber {
+class AudioParser implements AudioAlarmParser {
   calls = 0;
-  async transcribe(_input: AudioInput) {
+  lastInput?: AudioParseInput;
+  drafts = [draft()];
+  async parse(input: AudioParseInput) {
     this.calls++;
-    return "dentista amanhã às duas";
+    this.lastInput = input;
+    return this.drafts;
   }
 }
 function fixture(
@@ -75,17 +78,14 @@ function fixture(
   const cache = new MemoryCache();
   const verifier = new Verifier();
   const parser = new Parser();
-  const transcriber = new Transcriber();
+  const audioParser = new AudioParser();
   const deps: AppDependencies = {
     verifier,
     cache,
     registerAppAuth: new RegisterAppAuthUseCase(verifier, cache, ["app"]),
     testAuthToken,
     parseAlarms: new ParseAlarmUseCase(parser),
-    transcribeAudio: new TranscribeAudioUseCase(
-      transcriber,
-      new ParseAlarmUseCase(parser),
-    ),
+    parseAudio: new ParseAudioUseCase(audioParser),
     allowedOrigins: ["http://localhost:5173"],
     allowedAppIds: ["app"],
     limits: {
@@ -102,7 +102,7 @@ function fixture(
       ...overrides,
     },
   };
-  return { app: createApp(deps), parser, transcriber, verifier };
+  return { app: createApp(deps), parser, audioParser, verifier };
 }
 const headers = {
   "X-Firebase-AppCheck": "token",
@@ -120,6 +120,44 @@ const payload = {
 async function register(app: ReturnType<typeof createApp>) {
   await app.request("/register-auth", { method: "POST", headers });
 }
+
+function wav() {
+  const bytes = new Uint8Array(364);
+  const view = new DataView(bytes.buffer);
+  const write = (offset: number, text: string) => {
+    bytes.set(new TextEncoder().encode(text), offset);
+  };
+  write(0, "RIFF");
+  view.setUint32(4, bytes.length - 8, true);
+  write(8, "WAVE");
+  write(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 16_000, true);
+  view.setUint32(28, 32_000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, "data");
+  view.setUint32(40, bytes.length - 44, true);
+  return bytes;
+}
+
+function audioForm(
+  audio = new File([wav()], "request.wav", { type: "audio/wav" }),
+) {
+  const form = new FormData();
+  form.set("audio", audio);
+  form.set("currentDateTime", payload.context.currentDateTime);
+  form.set("timezone", payload.context.timezone);
+  form.set("locale", payload.context.locale);
+  return form;
+}
+
+const audioHeaders = {
+  "X-Firebase-AppCheck": "token",
+  "content-length": "900",
+};
 
 describe("AgendAI API", () => {
   test("registers a valid App Check token without storing it raw", async () => {
@@ -210,8 +248,37 @@ describe("AgendAI API", () => {
     expect(response.status).toBe(429);
     expect((await response.json()).error.code).toBe("RATE_LIMIT_EXCEEDED");
   });
-  test("rejects an invalid audio body before transcription", async () => {
-    const { app, transcriber } = fixture();
+  test("interprets valid audio once with its date context without calling the text parser", async () => {
+    const { app, audioParser, parser } = fixture();
+    await register(app);
+    const response = await app.request("/transcribe", {
+      method: "POST",
+      headers: audioHeaders,
+      body: audioForm(),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([draft()]);
+    expect(audioParser.calls).toBe(1);
+    expect(parser.calls).toBe(0);
+    expect(audioParser.lastInput?.context).toEqual(payload.context);
+    expect(audioParser.lastInput?.audio.bytes).toEqual(wav());
+  });
+  test("returns an empty array for audio with no reminder intent", async () => {
+    const { app, audioParser, parser } = fixture();
+    audioParser.drafts = [];
+    await register(app);
+    const response = await app.request("/transcribe", {
+      method: "POST",
+      headers: audioHeaders,
+      body: audioForm(),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+    expect(audioParser.calls).toBe(1);
+    expect(parser.calls).toBe(0);
+  });
+  test("rejects an invalid audio body before interpretation", async () => {
+    const { app, audioParser } = fixture();
     await register(app);
     const form = new FormData();
     form.set(
@@ -227,6 +294,44 @@ describe("AgendAI API", () => {
       body: form,
     });
     expect(response.status).toBe(415);
-    expect(transcriber.calls).toBe(0);
+    expect(audioParser.calls).toBe(0);
+  });
+  test("rejects unconverted recorder formats before calling the audio parser", async () => {
+    const { app, audioParser } = fixture();
+    await register(app);
+    const response = await app.request("/transcribe", {
+      method: "POST",
+      headers: audioHeaders,
+      body: audioForm(
+        new File([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])], "request.webm", {
+          type: "audio/webm",
+        }),
+      ),
+    });
+    expect(response.status).toBe(415);
+    expect(audioParser.calls).toBe(0);
+  });
+  test("requires authentication before audio interpretation", async () => {
+    const { app, audioParser } = fixture();
+    const response = await app.request("/transcribe", {
+      method: "POST",
+      headers: audioHeaders,
+      body: audioForm(),
+    });
+    expect(response.status).toBe(401);
+    expect(audioParser.calls).toBe(0);
+  });
+  test("rejects invalid time context before audio interpretation", async () => {
+    const { app, audioParser } = fixture();
+    await register(app);
+    const form = audioForm();
+    form.set("timezone", "Invalid/Timezone");
+    const response = await app.request("/transcribe", {
+      method: "POST",
+      headers: audioHeaders,
+      body: form,
+    });
+    expect(response.status).toBe(400);
+    expect(audioParser.calls).toBe(0);
   });
 });

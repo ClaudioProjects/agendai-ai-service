@@ -3,7 +3,7 @@ import { loadConfig } from "../src/config";
 
 const baseEnvironment = {
   OPENAI_API_KEY: "test-key",
-  OPENAI_TRANSCRIPTION_MODEL: "gpt-4o-mini-transcribe",
+  OPENAI_AUDIO_MODEL: "gpt-audio-1.5",
   OPENAI_PARSE_MODEL: "gpt-4o-mini",
   REDIS_URL: "https://example.com",
   REDIS_TOKEN: "test-token",
@@ -14,6 +14,10 @@ const baseEnvironment = {
 };
 
 describe("environment configuration", () => {
+  test("uses the audio model without requiring a transcription model", () => {
+    const { OPENAI_AUDIO_MODEL: _, ...environment } = baseEnvironment;
+    expect(loadConfig(environment).OPENAI_AUDIO_MODEL).toBe("gpt-audio-1.5");
+  });
   test("accepts a test token alongside mandatory Firebase configuration", () => {
     const config = loadConfig({
       ...baseEnvironment,

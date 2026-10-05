@@ -8,8 +8,7 @@ import {
   type AlarmDraft,
 } from "../../schemas/alarm";
 import type { ParseInput } from "../../schemas/requests";
-
-const instructions = `You extract one or more alarm drafts from the user's text. Return an empty array when no reminder/alarm intent exists. Use currentDateTime, timezone, and locale to resolve relative dates. Never invent information: use null for unknown fields. Always generate a concise, specific Portuguese title from the user's request; title must never be null or empty. Set reminderType to "pay_bill" when the user asks to pay a bill, account, invoice, tax, or similar charge; otherwise set it to "reminder". For pay_bill, extract the stated monetary amount as a number using the locale; otherwise amount must be null. id, status, createdAt, updatedAt, exceptions, notifications and eventColor must be null. The requested response must contain every AlarmDraft property. Interpret a Portuguese everyday unqualified 'às duas' as 14:00 when it is a plausible daytime appointment. Return dates as YYYY-MM-DD and time as HH:mm.`;
+import { alarmParsingInstructions } from "./alarm-instructions";
 
 export class OpenAIAlarmParser implements AlarmParser {
   private readonly client: OpenAI;
@@ -24,7 +23,7 @@ export class OpenAIAlarmParser implements AlarmParser {
     try {
       const response = await this.client.responses.parse({
         model: this.model,
-        instructions,
+        instructions: alarmParsingInstructions,
         input: JSON.stringify(input),
         text: {
           format: zodTextFormat(alarmDraftResponseSchema, "alarm_drafts"),

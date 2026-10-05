@@ -5,12 +5,12 @@ import type { Hono } from "hono";
 import { createApp } from "./create-app";
 import { loadConfig } from "./config";
 import { OpenAIAlarmParser } from "./providers/ai/openai-alarm-parser";
-import { OpenAITranscriber } from "./providers/ai/openai-transcriber";
+import { OpenAIAudioAlarmParser } from "./providers/ai/openai-audio-alarm-parser";
 import { FirebaseAppCheckVerifier } from "./providers/auth/firebase-app-check-verifier";
 import { UpstashRedisSdkCache } from "./providers/cache/upstash-redis-sdk-cache";
 import { ParseAlarmUseCase } from "./use-cases/parse-alarm";
 import { RegisterAppAuthUseCase } from "./use-cases/register-app-auth";
-import { TranscribeAudioUseCase } from "./use-cases/transcribe-audio";
+import { ParseAudioUseCase } from "./use-cases/parse-audio";
 
 const config = loadConfig();
 const cache = new UpstashRedisSdkCache(
@@ -27,7 +27,6 @@ const parser = new OpenAIAlarmParser(
   config.UPSTREAM_TIMEOUT_MS,
 );
 const app: Hono = createApp({
-  // Keep text and audio on the same parsing use case.
   verifier,
   cache,
   registerAppAuth: new RegisterAppAuthUseCase(
@@ -39,13 +38,12 @@ const app: Hono = createApp({
   ),
   testAuthToken: config.APP_AUTH_TEST_TOKEN,
   parseAlarms: new ParseAlarmUseCase(parser),
-  transcribeAudio: new TranscribeAudioUseCase(
-    new OpenAITranscriber(
+  parseAudio: new ParseAudioUseCase(
+    new OpenAIAudioAlarmParser(
       config.OPENAI_API_KEY,
-      config.OPENAI_TRANSCRIPTION_MODEL,
+      config.OPENAI_AUDIO_MODEL,
       config.UPSTREAM_TIMEOUT_MS,
     ),
-    new ParseAlarmUseCase(parser),
   ),
   allowedAppIds: config.FIREBASE_ALLOWED_APP_IDS.split(",")
     .map((appId) => appId.trim())

@@ -5,8 +5,12 @@ export type AudioInput = {
   fileName: string;
   mimeType: string;
 };
-export interface AudioTranscriber {
-  transcribe(input: AudioInput): Promise<string>;
+export type AudioParseInput = {
+  audio: AudioInput;
+  context: ParseInput["context"];
+};
+export interface AudioAlarmParser {
+  parse(input: AudioParseInput): Promise<AlarmDraft[]>;
 }
 export interface AlarmParser {
   parse(input: ParseInput): Promise<AlarmDraft[]>;

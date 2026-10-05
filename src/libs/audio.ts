@@ -1,15 +1,7 @@
 import { parseBuffer } from "music-metadata";
 import { ApiError } from "./errors";
 
-const supportedTypes = new Set([
-  "audio/mpeg",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/mp4",
-  "audio/aac",
-  "audio/ogg",
-  "audio/webm",
-]);
+const supportedTypes = new Set(["audio/mpeg", "audio/wav", "audio/x-wav"]);
 
 export async function validateAudio(input: {
   bytes: Uint8Array;
@@ -21,7 +13,7 @@ export async function validateAudio(input: {
     throw new ApiError(
       "UNSUPPORTED_AUDIO",
       415,
-      "Unsupported audio media type.",
+      "Audio interpretation requires WAV or MP3.",
     );
   if (input.bytes.byteLength > input.maxBytes)
     throw new ApiError(
@@ -68,16 +60,5 @@ function hasExpectedSignature(bytes: Uint8Array, type: string): boolean {
     );
   if (type === "audio/wav" || type === "audio/x-wav")
     return text(0, 4) === "RIFF" && text(8, 12) === "WAVE";
-  if (type === "audio/mp4") return text(4, 8) === "ftyp";
-  if (type === "audio/ogg") return text(0, 4) === "OggS";
-  if (type === "audio/webm")
-    return (
-      bytes[0] === 0x1a &&
-      bytes[1] === 0x45 &&
-      bytes[2] === 0xdf &&
-      bytes[3] === 0xa3
-    );
-  return (
-    type === "audio/aac" && bytes[0] === 0xff && (bytes[1]! & 0xf6) === 0xf0
-  );
+  return false;
 }

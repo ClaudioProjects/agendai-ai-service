@@ -8,7 +8,7 @@ const optionalNonEmptyString = z.preprocess(
 
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
-  OPENAI_TRANSCRIPTION_MODEL: z.string().min(1),
+  OPENAI_AUDIO_MODEL: z.string().trim().min(1).default("gpt-audio-1.5"),
   OPENAI_PARSE_MODEL: z.string().min(1),
   REDIS_URL: z.string().url(),
   REDIS_TOKEN: z.string().min(1),

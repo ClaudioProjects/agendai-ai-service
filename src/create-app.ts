@@ -16,7 +16,7 @@ import { validateAudio } from "./libs/audio";
 import { normalizeCapturedAudioMimeType } from "./libs/audio-mime";
 import { ParseAlarmUseCase } from "./use-cases/parse-alarm";
 import { RegisterAppAuthUseCase } from "./use-cases/register-app-auth";
-import { TranscribeAudioUseCase } from "./use-cases/transcribe-audio";
+import { ParseAudioUseCase } from "./use-cases/parse-audio";
 
 export type AppDependencies = {
   verifier: AppAttestationVerifier;
@@ -24,7 +24,7 @@ export type AppDependencies = {
   registerAppAuth: RegisterAppAuthUseCase;
   testAuthToken?: string;
   parseAlarms: ParseAlarmUseCase;
-  transcribeAudio: TranscribeAudioUseCase;
+  parseAudio: ParseAudioUseCase;
   allowedOrigins: string[];
   allowedAppIds: string[];
   limits: {
@@ -175,7 +175,7 @@ export function createApp(deps: AppDependencies) {
       maxSeconds: deps.limits.maxAudioDurationSeconds,
     });
     return context.json(
-      await deps.transcribeAudio.execute(
+      await deps.parseAudio.execute(
         { bytes, fileName: audio.name, mimeType },
         contextInput,
       ),

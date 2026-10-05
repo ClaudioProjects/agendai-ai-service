@@ -1,6 +1,6 @@
 # AgendAI Backend
 
-API Bun/Hono para validar Firebase App Check, aplicar limites por IP e token em Redis, transcrever áudio e devolver `AlarmDraft[]` estruturados. Ela não persiste áudios, transcrições ou alarmes.
+API Bun/Hono para validar Firebase App Check, aplicar limites por IP e token em Redis e devolver `AlarmDraft[]` extraídos de texto ou áudio. Ela não persiste áudios ou alarmes.
 
 ## Executar localmente
 
@@ -14,7 +14,13 @@ Use `bun run check` e `bun test` antes de publicar. Os testes usam mocks locais;
 
 - `POST /register-auth` com `X-Firebase-AppCheck`: possui limite por IP, verifica se o token pertence a um `FIREBASE_ALLOWED_APP_IDS` autorizado e guarda apenas seu SHA-256 em Redis até a expiração.
 - `POST /parse` com JSON `{ text, context }`: requer token válido e registrado; retorna sempre `AlarmDraft[]`.
-- `POST /transcribe` com `multipart/form-data`: requer `audio`, `currentDateTime`, `timezone` e `locale`; verifica MIME, assinatura, tamanho e duração antes da transcrição e retorna `AlarmDraft[]`.
+- `POST /transcribe` com `multipart/form-data`: requer `audio` em WAV ou MP3, `currentDateTime`, `timezone` e `locale`; verifica MIME, assinatura, tamanho e duração antes de interpretar o áudio e retorna `AlarmDraft[]`. O nome da rota foi preservado para compatibilidade com o cliente.
+
+O áudio e o contexto de data são enviados juntos em **uma única chamada** a Chat Completions com `OPENAI_AUDIO_MODEL=gpt-audio-1.5`. O modelo retorna os alarmes por function calling; o backend valida os argumentos com Zod. Não há chamada de transcrição nem uma segunda chamada ao parser de texto. Áudio sem intenção de lembrete (ou sem fala inteligível) retorna `[]`; respostas inválidas retornam `INVALID_AI_RESPONSE`, sem repetir a chamada.
+
+O frontend converte as gravações WebM/MP4/Ogg/AAC para WAV mono de 16 kHz antes do envio, usando Web Audio. Outros clientes devem enviar WAV ou MP3. O limite de tamanho também se aplica ao WAV convertido: com o padrão de 4 MB, cabem aproximadamente dois minutos nesse formato.
+
+Substitua `OPENAI_TRANSCRIPTION_MODEL` por `OPENAI_AUDIO_MODEL` no ambiente local e na hospedagem; na ausência da nova variável, o padrão é `gpt-audio-1.5`. O endpoint de texto continua usando `OPENAI_PARSE_MODEL`.
 
 O `REDIS_URL` é o endpoint HTTPS REST do Redis/Upstash e `REDIS_TOKEN` é seu bearer token. Não use uma URL `redis://` nessa implementação. Para acesso via browser, configure `CORS_ALLOWED_ORIGINS` com as origens do frontend, separadas por vírgula.
 
