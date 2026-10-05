@@ -91,7 +91,9 @@ export class OpenAIAudioAlarmParser implements AudioAlarmParser {
       const calls = choice?.message.tool_calls;
       const call = calls?.[0];
       if (
-        choice?.finish_reason !== "tool_calls" ||
+        !choice ||
+        (choice.finish_reason !== "tool_calls" &&
+          choice.finish_reason !== "stop") ||
         choice.message.refusal ||
         calls?.length !== 1 ||
         call?.type !== "function" ||

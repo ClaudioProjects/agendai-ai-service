@@ -38,10 +38,10 @@ const toolCall = (argumentsValue: string) => ({
   type: "function",
   function: { name: "return_alarm_drafts", arguments: argumentsValue },
 });
-const completion = (argumentsValue: string) => ({
+const completion = (argumentsValue: string, finishReason = "tool_calls") => ({
   choices: [
     {
-      finish_reason: "tool_calls",
+      finish_reason: finishReason,
       message: {
         role: "assistant",
         content: null,
@@ -70,6 +70,63 @@ function fixture(response: unknown, status = 200) {
 }
 
 describe("OpenAI audio alarm interpretation", () => {
+  test("accepts the reported GPT-Audio tool call with finish_reason stop", async () => {
+    const dentistDraft: AlarmDraft = {
+      ...draft,
+      reminderType: "reminder",
+      amount: null,
+      eventType: "DENTIST",
+      date: "2026-10-05",
+      time: "20:00",
+      recurrence: { type: "none", endDate: null, daysOfWeek: null },
+      title: "Ir ao dentista",
+    };
+    const argumentsValue =
+      '{"drafts":[{"id":null,"reminderType":"reminder","amount":null,"eventType":"DENTIST","date":"2026-10-05","time":"20:00","recurrence":{"type":"none","endDate":null,"daysOfWeek":null},"notifications":null,"status":null,"createdAt":null,"updatedAt":null,"exceptions":null,"title":"Ir ao dentista","description":null,"eventColor":null}]}';
+    const { parser, requests } = fixture(completion(argumentsValue, "stop"));
+    expect(await parser.parse(input)).toEqual([dentistDraft]);
+    expect(requests).toHaveLength(1);
+  });
+
+  test("validates tool arguments even when finish_reason is stop", async () => {
+    const { parser, requests } = fixture(completion("not json", "stop"));
+    await expect(parser.parse(input)).rejects.toMatchObject({
+      code: "INVALID_AI_RESPONSE",
+      status: 502,
+      message: "AI response does not match the alarm contract.",
+    });
+    expect(requests).toHaveLength(1);
+  });
+
+  test.each(["length", "content_filter"])(
+    "rejects finish_reason %s even with valid arguments",
+    async (reason) => {
+      const { parser, requests } = fixture(completion('{"drafts":[]}', reason));
+      await expect(parser.parse(input)).rejects.toMatchObject({
+        code: "INVALID_AI_RESPONSE",
+        status: 502,
+      });
+      expect(requests).toHaveLength(1);
+    },
+  );
+
+  test("rejects a refusal even when finish_reason is stop", async () => {
+    const response = completion('{"drafts":[]}', "stop");
+    const { parser, requests } = fixture({
+      choices: [
+        {
+          ...response.choices[0],
+          message: { ...response.choices[0]!.message, refusal: "Refused" },
+        },
+      ],
+    });
+    await expect(parser.parse(input)).rejects.toMatchObject({
+      code: "INVALID_AI_RESPONSE",
+      status: 502,
+    });
+    expect(requests).toHaveLength(1);
+  });
+
   test("sends audio and temporal context in one chat completion and returns multiple validated drafts", async () => {
     const drafts = [draft, { ...draft, title: "Pagar internet", amount: 99.9 }];
     const { parser, requests } = fixture(
