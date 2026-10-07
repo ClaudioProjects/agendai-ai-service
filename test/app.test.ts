@@ -122,7 +122,7 @@ function fixture(
 const headers = {
   "X-Firebase-AppCheck": "token",
   "Content-Type": "application/json",
-  "x-vercel-forwarded-for": "127.0.0.1",
+  "X-Forwarded-For": "127.0.0.1",
 };
 const payload = {
   text: "dentista amanhã às duas",
@@ -242,6 +242,45 @@ describe("AgendAI API", () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("VALIDATION_ERROR");
     expect(parser.calls).toBe(0);
+  });
+  test("limits by the first forwarded IP independently of proxy hops", async () => {
+    const { app, verifier } = fixture({ registerIp: 1 });
+    const request = (forwardedFor: string) =>
+      app.request("/register-auth", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "X-Forwarded-For": forwardedFor,
+          "X-Real-IP": "192.0.2.10",
+        },
+      });
+
+    expect((await request(" 203.0.113.1 , 192.0.2.1")).status).toBe(200);
+    const limited = await request("203.0.113.1, 192.0.2.2");
+    expect(limited.status).toBe(429);
+    expect((await limited.json()).error.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect((await request("203.0.113.2, 192.0.2.1")).status).toBe(200);
+    expect(verifier.calls).toBe(2);
+  });
+  test("falls back to X-Real-IP when the forwarded IP is missing or blank", async () => {
+    const { app, verifier } = fixture({ registerIp: 1 });
+    const request = (realIp: string, forwardedFor?: string) => {
+      const requestHeaders: Record<string, string> = {
+        "X-Firebase-AppCheck": "token",
+        "X-Real-IP": realIp,
+      };
+      if (forwardedFor !== undefined)
+        requestHeaders["X-Forwarded-For"] = forwardedFor;
+      return app.request("/register-auth", {
+        method: "POST",
+        headers: requestHeaders,
+      });
+    };
+
+    expect((await request(" 203.0.113.1 ")).status).toBe(200);
+    expect((await request("203.0.113.2", " ")).status).toBe(200);
+    expect((await request("203.0.113.1", "")).status).toBe(429);
+    expect(verifier.calls).toBe(2);
   });
   test("limits by token after registration", async () => {
     const { app } = fixture({ parseToken: 1 });

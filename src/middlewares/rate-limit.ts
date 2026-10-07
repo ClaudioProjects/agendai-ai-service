@@ -14,7 +14,9 @@ export function rateLimit(
   return async (context, next) => {
     const window = Math.floor(Date.now() / 1000 / input.windowSeconds);
     const ip =
-      context.req.header("x-vercel-forwarded-for")?.trim() || "unknown";
+      context.req.header("X-Forwarded-For")?.split(",")[0]?.trim() ||
+      context.req.header("X-Real-IP")?.trim() ||
+      "unknown";
     const ipCount = await cache.incrementWithinWindow(
       `rate:ip:${ip}:${input.route}:${window}`,
       input.windowSeconds,
