@@ -59,9 +59,10 @@ class Verifier implements AppAttestationVerifier {
 }
 class Parser implements AlarmParser {
   calls = 0;
+  drafts = [draft()];
   async parse(input: { text: string }) {
     this.calls++;
-    return input.text === "none" ? [] : [draft()];
+    return input.text === "none" ? [] : this.drafts;
   }
 }
 class AudioParser implements AudioAlarmParser {
@@ -350,6 +351,60 @@ describe("AgendAI API", () => {
     expect(audioParser.calls).toBe(0);
   });
 });
+
+describe.each(["/parse", "/transcribe"])(
+  "Default alarm dates at %s",
+  (route) => {
+    test.each([
+      ["2026-10-08T01:30:00Z", "America/Sao_Paulo", "2026-10-07"],
+      ["2026-10-08T10:30:00+09:00", "America/Sao_Paulo", "2026-10-07"],
+      ["2026-10-31T23:30:00Z", "Asia/Tokyo", "2026-11-01"],
+      ["2028-03-01T01:30:00Z", "America/Sao_Paulo", "2028-02-29"],
+    ])(
+      "uses %s in %s for missing dates, producing %s",
+      async (currentDateTime, timezone, date) => {
+        const { app, parser, audioParser } = fixture();
+        const missingDate = { ...draft("Tomar remédio"), date: null };
+        const bill: AlarmDraft = {
+          ...draft("Pagar conta"),
+          reminderType: "pay_bill",
+          amount: 150.5,
+          date: null,
+          time: null,
+        };
+        const identifiedDate = draft();
+        const drafts = [missingDate, bill, identifiedDate];
+        parser.drafts = drafts;
+        audioParser.drafts = drafts;
+        const context = { ...payload.context, currentDateTime, timezone };
+        const form = audioForm();
+        form.set("currentDateTime", currentDateTime);
+        form.set("timezone", timezone);
+        await register(app);
+
+        const response = await app.request(route, {
+          method: "POST",
+          headers: route === "/parse" ? headers : audioHeaders,
+          body:
+            route === "/parse"
+              ? JSON.stringify({ text: "Tomar remédio e pagar conta", context })
+              : form,
+        });
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual([
+          { ...missingDate, date },
+          { ...bill, date },
+          identifiedDate,
+        ]);
+        expect(missingDate.date).toBeNull();
+        expect(bill.date).toBeNull();
+        expect(parser.calls).toBe(route === "/parse" ? 1 : 0);
+        expect(audioParser.calls).toBe(route === "/transcribe" ? 1 : 0);
+      },
+    );
+  },
+);
 
 describe("Router/controller boundaries", () => {
   test("register-auth forwards the token and serializes the injected controller result", async () => {

@@ -16,6 +16,8 @@ Use `bun run check` e `bun test` antes de publicar. Os testes usam mocks locais;
 - `POST /parse` com JSON `{ text, context }`: requer token válido e registrado; retorna sempre `AlarmDraft[]`.
 - `POST /transcribe` com `multipart/form-data`: requer `audio` em WAV ou MP3, `currentDateTime`, `timezone` e `locale`; verifica MIME, assinatura, tamanho e duração antes de interpretar o áudio e retorna `AlarmDraft[]`. O nome da rota foi preservado para compatibilidade com o cliente.
 
+Nos dois endpoints, quando o parser retorna um lembrete com `date: null`, o backend preenche a data atual em `YYYY-MM-DD`, calculada a partir de `context.currentDateTime` no fuso `context.timezone`. Datas identificadas pelo parser são preservadas.
+
 O áudio e o contexto de data são enviados juntos em **uma única chamada** a Chat Completions com `OPENAI_AUDIO_MODEL=gpt-audio-1.5`. O modelo retorna os alarmes por function calling; o backend valida os argumentos com Zod. Não há chamada de transcrição nem uma segunda chamada ao parser de texto. Áudio sem intenção de lembrete (ou sem fala inteligível) retorna `[]`; respostas inválidas retornam `INVALID_AI_RESPONSE`, sem repetir a chamada.
 
 O frontend converte as gravações WebM/MP4/Ogg/AAC para WAV mono de 16 kHz antes do envio, usando Web Audio. Outros clientes devem enviar WAV ou MP3. O limite de tamanho também se aplica ao WAV convertido: com o padrão de 4 MB, cabem aproximadamente dois minutos nesse formato.
