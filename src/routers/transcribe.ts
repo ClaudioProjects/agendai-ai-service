@@ -26,7 +26,7 @@ export type TranscribeRouterDependencies = {
 export function createTranscribeRouter(deps: TranscribeRouterDependencies) {
   const router = new Hono();
   router.post(
-    "/transcribe",
+    "/interpret/audio",
     appAuth(deps.verifier, deps.cache, deps.allowedAppIds, deps.testAuthToken),
     rateLimit(deps.cache, {
       route: "transcribe",

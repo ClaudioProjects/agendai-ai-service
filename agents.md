@@ -15,7 +15,7 @@
 - Controllers não devem importar Hono nem receber `Context`, `Request`, `Response`, `FormData` ou `File`. O contexto de data, timezone e locale é dado de domínio e pode fazer parte da entrada.
 - Tratar os erros e convertê-los em respostas HTTP no `app.onError` central de `src/create-app.ts`; não capturar erros nos controllers para retornar respostas de falha.
 - `src/index.ts` instancia e conecta providers, use-cases e controllers. `src/create-app.ts` recebe os controllers, configura middlewares globais e tratamento de erros e monta os routers.
-- Pares atuais: `register-auth.ts` para `POST /register-auth`, `parse.ts` para `POST /parse` e `transcribe.ts` para `POST /transcribe`.
+- Pares atuais: `register-auth.ts` para `POST /register-auth`, `parse.ts` para `POST /interpret/text` e `transcribe.ts` para `POST /interpret/audio`.
 - Ao alterar essas camadas, validar a injeção dos controllers, a preservação dos resultados, a propagação dos erros e o bloqueio de requisições inválidas antes de chamar use-cases.
 
 ## Formatação obrigatória

@@ -186,7 +186,7 @@ describe("AgendAI API", () => {
   });
   test("requires a registered valid token before parsing", async () => {
     const { app, parser } = fixture();
-    const response = await app.request("/parse", {
+    const response = await app.request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -205,7 +205,7 @@ describe("AgendAI API", () => {
   });
   test("accepts the configured test token without Firebase verification or registration", async () => {
     const { app, parser, verifier } = fixture({}, "local-test-token");
-    const response = await app.request("/parse", {
+    const response = await app.request("/interpret/text", {
       method: "POST",
       headers: { ...headers, "X-Firebase-AppCheck": "local-test-token" },
       body: JSON.stringify(payload),
@@ -217,14 +217,14 @@ describe("AgendAI API", () => {
   test("returns an AlarmDraft array and accepts no reminder intent", async () => {
     const { app } = fixture();
     await register(app);
-    const response = await app.request("/parse", {
+    const response = await app.request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([draft()]);
-    const none = await app.request("/parse", {
+    const none = await app.request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify({ ...payload, text: "none" }),
@@ -234,7 +234,7 @@ describe("AgendAI API", () => {
   test("does not call parser for invalid payload", async () => {
     const { app, parser } = fixture();
     await register(app);
-    const response = await app.request("/parse", {
+    const response = await app.request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify({ ...payload, text: "" }),
@@ -248,14 +248,14 @@ describe("AgendAI API", () => {
     await register(app);
     expect(
       (
-        await app.request("/parse", {
+        await app.request("/interpret/text", {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
         })
       ).status,
     ).toBe(200);
-    const response = await app.request("/parse", {
+    const response = await app.request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -266,7 +266,7 @@ describe("AgendAI API", () => {
   test("interprets valid audio once with its date context without calling the text parser", async () => {
     const { app, audioParser, parser } = fixture();
     await register(app);
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: audioForm(),
@@ -283,7 +283,7 @@ describe("AgendAI API", () => {
     const { app, audioParser, parser } = fixture();
     audioParser.drafts = [];
     await register(app);
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: audioForm(),
@@ -304,7 +304,7 @@ describe("AgendAI API", () => {
     form.set("currentDateTime", payload.context.currentDateTime);
     form.set("timezone", payload.context.timezone);
     form.set("locale", payload.context.locale);
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: { "X-Firebase-AppCheck": "token", "content-length": "100" },
       body: form,
@@ -315,7 +315,7 @@ describe("AgendAI API", () => {
   test("rejects unconverted recorder formats before calling the audio parser", async () => {
     const { app, audioParser } = fixture();
     await register(app);
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: audioForm(
@@ -329,7 +329,7 @@ describe("AgendAI API", () => {
   });
   test("requires authentication before audio interpretation", async () => {
     const { app, audioParser } = fixture();
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: audioForm(),
@@ -342,7 +342,7 @@ describe("AgendAI API", () => {
     await register(app);
     const form = audioForm();
     form.set("timezone", "Invalid/Timezone");
-    const response = await app.request("/transcribe", {
+    const response = await app.request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: form,
@@ -352,7 +352,7 @@ describe("AgendAI API", () => {
   });
 });
 
-describe.each(["/parse", "/transcribe"])(
+describe.each(["/interpret/text", "/interpret/audio"])(
   "Default alarm dates at %s",
   (route) => {
     test.each([
@@ -384,9 +384,9 @@ describe.each(["/parse", "/transcribe"])(
 
         const response = await app.request(route, {
           method: "POST",
-          headers: route === "/parse" ? headers : audioHeaders,
+          headers: route === "/interpret/text" ? headers : audioHeaders,
           body:
-            route === "/parse"
+            route === "/interpret/text"
               ? JSON.stringify({ text: "Tomar remédio e pagar conta", context })
               : form,
         });
@@ -399,8 +399,8 @@ describe.each(["/parse", "/transcribe"])(
         ]);
         expect(missingDate.date).toBeNull();
         expect(bill.date).toBeNull();
-        expect(parser.calls).toBe(route === "/parse" ? 1 : 0);
-        expect(audioParser.calls).toBe(route === "/transcribe" ? 1 : 0);
+        expect(parser.calls).toBe(route === "/interpret/text" ? 1 : 0);
+        expect(audioParser.calls).toBe(route === "/interpret/audio" ? 1 : 0);
       },
     );
   },
@@ -438,7 +438,7 @@ describe("Router/controller boundaries", () => {
         return result;
       },
     };
-    const response = await createApp(deps).request("/parse", {
+    const response = await createApp(deps).request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify({ ...payload, text: `  ${payload.text}  ` }),
@@ -460,7 +460,7 @@ describe("Router/controller boundaries", () => {
         return result;
       },
     };
-    const response = await createApp(deps).request("/transcribe", {
+    const response = await createApp(deps).request("/interpret/audio", {
       method: "POST",
       headers: audioHeaders,
       body: audioForm(
@@ -477,7 +477,7 @@ describe("Router/controller boundaries", () => {
     expect(audioParser.calls).toBe(0);
   });
 
-  test.each(["/register-auth", "/parse", "/transcribe"])(
+  test.each(["/register-auth", "/interpret/text", "/interpret/audio"])(
     "rejects a missing App Check header before calling the controller at %s",
     async (route) => {
       const { deps, verifier } = fixture();
@@ -505,7 +505,7 @@ describe("Router/controller boundaries", () => {
     },
   );
 
-  test.each(["/register-auth", "/parse", "/transcribe"])(
+  test.each(["/register-auth", "/interpret/text", "/interpret/audio"])(
     "uses the central error handler for controller failures at %s",
     async (route) => {
       const { deps } = fixture({}, "token");
@@ -526,8 +526,9 @@ describe("Router/controller boundaries", () => {
       };
       const response = await createApp(deps).request(route, {
         method: "POST",
-        headers: route === "/transcribe" ? audioHeaders : headers,
-        body: route === "/transcribe" ? audioForm() : JSON.stringify(payload),
+        headers: route === "/interpret/audio" ? audioHeaders : headers,
+        body:
+          route === "/interpret/audio" ? audioForm() : JSON.stringify(payload),
       });
 
       expect(response.status).toBe(503);
@@ -548,7 +549,7 @@ describe("Router/controller boundaries", () => {
         throw new Error("Private provider details");
       },
     };
-    const response = await createApp(deps).request("/parse", {
+    const response = await createApp(deps).request("/interpret/text", {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -580,7 +581,7 @@ describe("Router/controller boundaries", () => {
       };
       if (contentLength !== undefined)
         requestHeaders["content-length"] = contentLength;
-      const response = await createApp(deps).request("/transcribe", {
+      const response = await createApp(deps).request("/interpret/audio", {
         method: "POST",
         headers: requestHeaders,
         body: audioForm(),
@@ -606,7 +607,7 @@ describe("Router/controller boundaries", () => {
           return [];
         },
       };
-      const response = await createApp(deps).request("/parse", {
+      const response = await createApp(deps).request("/interpret/text", {
         method: "POST",
         headers,
         body,

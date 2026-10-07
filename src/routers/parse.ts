@@ -25,7 +25,7 @@ export type ParseRouterDependencies = {
 export function createParseRouter(deps: ParseRouterDependencies) {
   const router = new Hono();
   router.post(
-    "/parse",
+    "/interpret/text",
     appAuth(deps.verifier, deps.cache, deps.allowedAppIds, deps.testAuthToken),
     rateLimit(deps.cache, {
       route: "parse",

@@ -13,8 +13,8 @@ Use `bun run check` e `bun test` antes de publicar. Os testes usam mocks locais;
 ## Endpoints
 
 - `POST /register-auth` com `X-Firebase-AppCheck`: possui limite por IP, verifica se o token pertence a um `FIREBASE_ALLOWED_APP_IDS` autorizado e guarda apenas seu SHA-256 em Redis até a expiração.
-- `POST /parse` com JSON `{ text, context }`: requer token válido e registrado; retorna sempre `AlarmDraft[]`.
-- `POST /transcribe` com `multipart/form-data`: requer `audio` em WAV ou MP3, `currentDateTime`, `timezone` e `locale`; verifica MIME, assinatura, tamanho e duração antes de interpretar o áudio e retorna `AlarmDraft[]`. O nome da rota foi preservado para compatibilidade com o cliente.
+- `POST /interpret/text` com JSON `{ text, context }`: requer token válido e registrado; retorna sempre `AlarmDraft[]`.
+- `POST /interpret/audio` com `multipart/form-data`: requer `audio` em WAV ou MP3, `currentDateTime`, `timezone` e `locale`; verifica MIME, assinatura, tamanho e duração antes de interpretar o áudio e retorna `AlarmDraft[]`.
 
 Nos dois endpoints, quando o parser retorna um lembrete com `date: null`, o backend preenche a data atual em `YYYY-MM-DD`, calculada a partir de `context.currentDateTime` no fuso `context.timezone`. Datas identificadas pelo parser são preservadas.
 
@@ -34,4 +34,4 @@ Na Vercel, Functions aceitam no máximo 4,5 MB por request. Por isso, `MAX_AUDIO
 
 ## Teste sem validação Firebase por requisição
 
-Defina `APP_AUTH_TEST_TOKEN` no backend e envie exatamente esse valor no cabeçalho `X-Firebase-AppCheck`. Esse token libera `/register-auth`, `/parse` e `/transcribe` sem verificar aquela requisição no Firebase nem exigir o registro do token em Redis; os limites por IP e por token continuam ativos. As variáveis `FIREBASE_*` e o verifier continuam obrigatórios, pois o Firebase permanece o fluxo normal de autenticação. Não exponha esse token em um build público ou em produção: ele é apenas um atalho temporário para desenvolvimento e testes.
+Defina `APP_AUTH_TEST_TOKEN` no backend e envie exatamente esse valor no cabeçalho `X-Firebase-AppCheck`. Esse token libera `/register-auth`, `/interpret/text` e `/interpret/audio` sem verificar aquela requisição no Firebase nem exigir o registro do token em Redis; os limites por IP e por token continuam ativos. As variáveis `FIREBASE_*` e o verifier continuam obrigatórios, pois o Firebase permanece o fluxo normal de autenticação. Não exponha esse token em um build público ou em produção: ele é apenas um atalho temporário para desenvolvimento e testes.
